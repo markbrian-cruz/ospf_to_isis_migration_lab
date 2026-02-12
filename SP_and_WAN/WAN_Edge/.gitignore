@@ -1,0 +1,13 @@
+# WAN_Edge Specific Exclusions
+
+# Secrets and Inventory in this folder
+secrets.yml
+hosts.ini
+.vault_pass
+
+# Documentation & Data
+*.txt
+*.csv
+
+# Ansible temporary files
+*.retry
