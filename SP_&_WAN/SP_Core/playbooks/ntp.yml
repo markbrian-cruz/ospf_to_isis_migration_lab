@@ -1,0 +1,17 @@
+---
+- name: Synchronize Router Clocks
+  hosts: routers
+  gather_facts: no
+
+  tasks:
+    - name: Configure NTP and Millisecond Timestamps
+      cisco.ios.ios_config:
+        lines:
+          - ntp server 172.16.100.2
+          - service timestamps log datetime msec
+          - service timestamps debug datetime msec
+        save_when: always
+
+    - name: Force Manual Clock Sync (Feb 2026)
+      cisco.ios.ios_command:
+        commands: "clock set 23:15:00 Feb 7 2026"

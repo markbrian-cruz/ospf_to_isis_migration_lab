@@ -1,0 +1,26 @@
+---
+- name: OSPF Process Decommission
+  hosts: R1, R2, R3, R4, R5
+  gather_facts: no
+  vars_files:
+    - "../secrets.yml"
+
+  vars:
+    ansible_user: "{{ ssh_username }}"
+    ansible_ssh_pass: "{{ ssh_password }}"
+
+  tasks:
+    - name: Remove OSPF Process 1
+      cisco.ios.ios_config:
+        lines:
+          - "no router ospf 1"
+      ignore_errors: yes
+      notify: Save Configuration
+
+  handlers:
+    - name: Save Configuration
+      cisco.ios.ios_command:
+        commands:
+          - command: "copy running-config startup-config"
+            prompt: 'Destination filename \[startup-config\]\?'
+            answer: "\r"

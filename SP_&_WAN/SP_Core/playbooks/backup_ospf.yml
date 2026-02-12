@@ -1,0 +1,31 @@
+---
+- name: Capture OSPF Baseline State
+  hosts: routers
+  gather_facts: no
+
+  tasks:
+    - name: Run OSPF Show Commands
+      cisco.ios.ios_command:
+        commands:
+          - show ip ospf neighbor
+          - show ip route ospf
+          - show ip interface brief
+      register: ospf_data
+
+    - name: Create Snapshot File
+      delegate_to: localhost
+      ansible.builtin.copy:
+        # Adds a clear header and joins the command outputs
+        content: |
+          OSPF PRE-MIGRATION SNAPSHOT
+          Router: {{ inventory_hostname }}
+          Date: {{ lookup('pipe', 'date "+%Y-%m-%d %H:%M:%S"') }}
+          -----------------------------------------
+          {{ ospf_data.stdout | join('\n\n' + '='*30 + '\n\n') }}
+        
+        # Saves as R1_OSPF_2026-02-07.txt (or current date)
+        dest: "./{{ inventory_hostname }}_OSPF_{{ lookup('pipe', 'date +%Y-%m-%d') }}.txt"
+
+    - name: Success Summary
+      debug:
+        msg: "Verified: OSPF state for {{ inventory_hostname }} is archived."

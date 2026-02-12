@@ -1,0 +1,50 @@
+---
+- name: Deploy VRFs
+  hosts: R1, R5
+  gather_facts: no
+
+  vars:
+    customers:
+      - name: "CUST_A"
+        rd: "6500:10"
+        rt: "6500:10"
+        interface: "FastEthernet1/0"
+        r1_ip: "15.15.1.1 255.255.255.0"
+        r5_ip: "15.15.2.1 255.255.255.0"
+      - name: "CUST_B"
+        rd: "6500:20"
+        rt: "6500:20"
+        interface: "FastEthernet2/0"
+        r1_ip: "15.15.1.1 255.255.255.0"
+        r5_ip: "15.15.2.1 255.255.255.0"
+
+  tasks:
+    # 1. Create the VRF (Legacy 3725/3745 Syntax)
+    - name: Configure VRF Definition
+      cisco.ios.ios_config:
+        lines:
+          - "rd {{ item.rd }}"
+          - "route-target export {{ item.rt }}"
+          - "route-target import {{ item.rt }}"
+        parents: "ip vrf {{ item.name }}"
+      loop: "{{ customers }}"
+
+    # 2. Configure Customer Interfaces (Transit Links)
+    - name: Configure Customer Interfaces
+      cisco.ios.ios_config:
+        lines:
+          - "ip vrf forwarding {{ item.name }}"
+          - "ip address {{ (inventory_hostname == 'R1') | ternary(item.r1_ip, item.r5_ip) }}"
+          - "no shutdown"
+        parents: "interface {{ item.interface }}"
+      loop: "{{ customers }}"
+      notify: Save Configuration
+
+  handlers:
+    # 3. Save Configuration using SSH-based command [cite: 2026-02-06, 2026-02-08]
+    - name: Save Configuration
+      cisco.ios.ios_command:
+        commands:
+          - command: "copy running-config startup-config"
+            prompt: 'Destination filename \[startup-config\]\?'
+            answer: "\r"

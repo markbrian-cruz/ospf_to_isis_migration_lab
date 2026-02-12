@@ -1,0 +1,64 @@
+---
+- name: Configure Edge BGP Peering for Customer VRFs
+  hosts: R1, R5
+  gather_facts: no
+  vars_files:
+    - "../secrets.yml"
+
+  vars:
+    ansible_user: "{{ ssh_username }}"
+    ansible_ssh_pass: "{{ ssh_password }}"
+
+  tasks:
+    # --- R1 CUSTOMER PEERING ---
+    - name: Configure BGP VRFs for R1
+      cisco.ios.ios_config:
+        parents: "router bgp 65000"
+        lines:
+          - "address-family ipv4 vrf CUST_A"
+          - "  neighbor 15.15.1.2 remote-as 64850"
+          - "  neighbor 15.15.1.2 activate"
+          - "  neighbor 15.15.1.2 allowas-in"
+          - "  neighbor 15.15.1.2 as-override" # Fixes CE "Subnet not in table" issue
+          - "  neighbor 15.15.1.2 soft-reconfiguration inbound"
+          - "exit-address-family"
+          - "address-family ipv4 vrf CUST_B"
+          - "  neighbor 15.15.1.2 remote-as 64860"
+          - "  neighbor 15.15.1.2 activate"
+          - "  neighbor 15.15.1.2 allowas-in"
+          - "  neighbor 15.15.1.2 as-override"
+          - "  neighbor 15.15.1.2 soft-reconfiguration inbound"
+          - "  network 15.15.1.0 mask 255.255.255.0"
+          - "exit-address-family"
+      when: inventory_hostname == 'R1'
+      notify: Save Configuration
+
+    # --- R5 CUSTOMER PEERING ---
+    - name: Configure BGP VRFs for R5
+      cisco.ios.ios_config:
+        parents: "router bgp 65000"
+        lines:
+          - "address-family ipv4 vrf CUST_A"
+          - "  neighbor 15.15.2.2 remote-as 64850"
+          - "  neighbor 15.15.2.2 activate"
+          - "  neighbor 15.15.2.2 allowas-in"
+          - "  neighbor 15.15.2.2 as-override"
+          - "  neighbor 15.15.2.2 soft-reconfiguration inbound"
+          - "exit-address-family"
+          - "address-family ipv4 vrf CUST_B"
+          - "  neighbor 15.15.2.2 remote-as 64860"
+          - "  neighbor 15.15.2.2 activate"
+          - "  neighbor 15.15.2.2 allowas-in"
+          - "  neighbor 15.15.2.2 as-override"
+          - "  neighbor 15.15.2.2 soft-reconfiguration inbound"
+          - "exit-address-family"
+      when: inventory_hostname == 'R5'
+      notify: Save Configuration
+
+  handlers:
+    - name: Save Configuration
+      cisco.ios.ios_command:
+        commands:
+          - command: "copy running-config startup-config"
+            prompt: 'Destination filename \[startup-config\]\?'
+            answer: "\r"

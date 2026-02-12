@@ -1,0 +1,6 @@
+hostname,ip,username,password
+R1,1.1.1.1,admin,password
+R2,2.2.2.2,admin,password
+R3,3.3.3.3,admin,password
+R4,4.4.4.4,admin,password
+R5,5.5.5.5,admin,password

@@ -1,0 +1,215 @@
+---
+
+- name: Configure Bidirectional MPLS-TE
+
+  hosts: R1, R5
+
+  gather_facts: no
+
+  vars_files:
+
+    - "../secrets.yml"
+
+
+
+  vars:
+
+    # For SSH use
+
+    ansible_user: "{{ ssh_username }}"
+
+    ansible_ssh_pass: "{{ ssh_password }}"
+
+    ansible_connection: network_cli
+
+    ansible_network_os: cisco.ios.ios
+
+
+
+    # R1 -> R5 Path Definitions
+
+    paths_r1_to_r5:
+
+      - name: "PATH-UPPER-R1-R5"
+
+        hops: [10.0.0.1, 10.0.0.3, 10.0.0.5]
+
+      - name: "PATH-LOWER-R1-R5"
+
+        hops: [10.0.0.7, 10.0.0.9]
+
+
+
+    # R5 -> R1 Path Definitions
+
+    paths_r5_to_r1:
+
+      - name: "PATH-UPPER-R5-R1"
+
+        hops: [10.0.0.4, 10.0.0.2, 10.0.0.0]
+
+      - name: "PATH-LOWER-R5-R1"
+
+        hops: [10.0.0.8, 10.0.0.6]
+
+
+
+  tasks:
+
+    - name: Global TE and IS-IS Extensions
+
+      cisco.ios.ios_config:
+
+        lines:
+
+          - "mpls traffic-eng tunnels"
+
+          - "mpls ldp explicit-null"
+
+          - "router isis"
+
+          - " metric-style wide"
+
+          - " mpls traffic-eng level-2"
+
+          - " mpls traffic-eng router-id Loopback0"
+
+
+
+    - name: Enable TE on Core-Facing Interfaces
+
+      cisco.ios.ios_config:
+
+        lines:
+
+          - "mpls traffic-eng tunnels"
+
+          - "ip router isis"
+
+          - "ip rsvp bandwidth"
+
+        parents: "interface {{ item }}"
+
+      loop: ['FastEthernet0/0', 'FastEthernet0/1']
+
+
+
+    - name: Configure Explicit Paths for R1
+
+      cisco.ios.ios_config:
+
+        parents: "ip explicit-path name {{ item.name }} enable"
+
+        lines: "{{ item.hops | map('regex_replace', '^(.*)$', 'next-address \\1') | list }}"
+
+      loop: "{{ paths_r1_to_r5 }}"
+
+      when: inventory_hostname == 'R1'
+
+
+
+    - name: Configure Explicit Paths for R5
+
+      cisco.ios.ios_config:
+
+        parents: "ip explicit-path name {{ item.name }} enable"
+
+        lines: "{{ item.hops | map('regex_replace', '^(.*)$', 'next-address \\1') | list }}"
+
+      loop: "{{ paths_r5_to_r1 }}"
+
+      when: inventory_hostname == 'R5'
+
+
+
+    - name: Deploy Tunnels on R1
+
+      cisco.ios.ios_config:
+
+        lines:
+
+          - "description {{ item.desc }}"
+
+          - "ip unnumbered Loopback0"
+
+          - "tunnel mode mpls traffic-eng"
+
+          - "tunnel destination 5.5.5.5"
+
+          - "tunnel mpls traffic-eng path-option 1 explicit name {{ item.pri }}"
+
+          - "tunnel mpls traffic-eng path-option 2 explicit name {{ item.sec }}"
+
+          - "tunnel mpls traffic-eng autoroute announce"
+
+          - "tunnel mpls traffic-eng bandwidth 1"
+
+          - "mpls ip"
+
+          - "mpls mtu 1512"
+
+        parents: "interface {{ item.id }}"
+
+      loop:
+
+        - { id: 'Tunnel10', desc: 'TO-R5-UPPER', pri: 'PATH-UPPER-R1-R5', sec: 'PATH-LOWER-R1-R5' }
+
+        - { id: 'Tunnel20', desc: 'TO-R5-LOWER', pri: 'PATH-LOWER-R1-R5', sec: 'PATH-UPPER-R1-R5' }
+
+      when: inventory_hostname == 'R1'
+
+
+
+    - name: Deploy Tunnels on R5
+
+      cisco.ios.ios_config:
+
+        lines:
+
+          - "description {{ item.desc }}"
+
+          - "ip unnumbered Loopback0"
+
+          - "tunnel mode mpls traffic-eng"
+
+          - "tunnel destination 1.1.1.1"
+
+          - "tunnel mpls traffic-eng path-option 1 explicit name {{ item.pri }}"
+
+          - "tunnel mpls traffic-eng path-option 2 explicit name {{ item.sec }}"
+
+          - "tunnel mpls traffic-eng autoroute announce"
+
+          - "tunnel mpls traffic-eng bandwidth 1"
+
+          - "mpls ip"
+
+          - "mpls mtu 1512"
+
+        parents: "interface {{ item.id }}"
+
+      loop:
+
+        - { id: 'Tunnel10', desc: 'TO-R1-UPPER', pri: 'PATH-UPPER-R5-R1', sec: 'PATH-LOWER-R5-R1' }
+
+        - { id: 'Tunnel20', desc: 'TO-R1-LOWER', pri: 'PATH-LOWER-R5-R1', sec: 'PATH-UPPER-R5-R1' }
+
+      when: inventory_hostname == 'R5'
+
+      notify: Save Configuration
+
+
+
+  handlers:
+
+    - name: Save Configuration
+
+      cisco.ios.ios_command:
+
+        commands:
+
+          - command: "copy running-config startup-config"
+
+            prompt: 'Destination filename \[startup-config\]\?'
+
+            answer: "\r"

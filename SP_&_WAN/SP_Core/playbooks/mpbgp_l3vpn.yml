@@ -1,0 +1,54 @@
+---
+- name: Configure MP-BGP for L3VPN 
+  hosts: R1, R5
+  gather_facts: no
+
+  vars:
+    bgp_asn: 6500
+    r1_loopback: "1.1.1.1"
+    r5_loopback: "5.5.5.5"
+
+  tasks:
+    - name: Enable MPLS and TE on Tunnel Interfaces
+      cisco.ios.ios_config:
+        lines:
+          - "tunnel mpls traffic-eng autoroute announce"
+          - "mpls ip"
+        parents: "interface {{ item }}"
+      loop: ['Tunnel10', 'Tunnel20']
+
+    - name: Configure BGP Neighbor and VPNv4
+      cisco.ios.ios_config:
+        lines:
+          - "neighbor {{ (inventory_hostname == 'R1') | ternary(r5_loopback, r1_loopback) }} remote-as {{ bgp_asn }}"
+          - "neighbor {{ (inventory_hostname == 'R1') | ternary(r5_loopback, r1_loopback) }} update-source Loopback0"
+        parents: "router bgp {{ bgp_asn }}"
+
+    - name: Activate VPNv4 and Enable Next-Hop Recursive Resolution
+      cisco.ios.ios_config:
+        lines:
+          - "neighbor {{ (inventory_hostname == 'R1') | ternary(r5_loopback, r1_loopback) }} activate"
+          - "neighbor {{ (inventory_hostname == 'R1') | ternary(r5_loopback, r1_loopback) }} send-community both"
+          - "no bgp nexthop route-map SET-TE"
+          - "bgp nexthop trigger delay 1"
+        parents: 
+          - "router bgp {{ bgp_asn }}"
+          - "address-family vpnv4"
+
+    - name: Redistribute VRF Routes
+      cisco.ios.ios_config:
+        lines:
+          - "redistribute connected"
+        parents: 
+          - "router bgp {{ bgp_asn }}"
+          - "address-family ipv4 vrf {{ item }}"
+      loop: ["CUST_A", "CUST_B"]
+      notify: Save Configuration
+
+  handlers:
+    - name: Save Configuration
+      cisco.ios.ios_command:
+        commands:
+          - command: "copy running-config startup-config"
+            prompt: 'Destination filename \[startup-config\]\?'
+            answer: "\r"

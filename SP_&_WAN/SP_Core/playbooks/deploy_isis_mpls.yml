@@ -1,0 +1,55 @@
+---
+- name: Deploy IS-IS and MPLS with TE and Passive Subnets
+  hosts: routers
+  gather_facts: no
+
+  vars:
+    system_id: "0000.0000.000{{ inventory_hostname | regex_replace('R', '') }}"
+    passive_intfs:
+      - FastEthernet1/0 
+
+  tasks:
+    - name: Configure SP Core Global Features
+      cisco.ios.ios_config:
+        lines:
+          - "mpls ip"
+          - "mpls label protocol ldp"
+          - "mpls traffic-eng tunnels"
+      notify: Save Configuration
+
+    - name: Configure IS-IS Process and Passive Interfaces
+      cisco.ios.ios_config:
+        lines:
+          - "net 49.0001.{{ system_id }}.00"
+          - "is-type level-2-only"
+          - "metric-style wide"
+          - "mpls traffic-eng level-2"
+          - "mpls traffic-eng router-id Loopback0"
+          - "passive-interface {{ item }}"
+          - "log-adjacency-changes"
+        parents: "router isis"
+      loop: "{{ passive_intfs }}"
+      notify: Save Configuration
+
+    - name: Enable Protocols on Core Interfaces
+      cisco.ios.ios_config:
+        lines:
+          - "ip router isis"
+          - "mpls ip"
+          - "mpls traffic-eng tunnels"
+          - "ip rsvp bandwidth 1000"  # Minimal requirement for TE label signaling
+          - "mpls mtu 1512"           # Minimal requirement for TE label stack overhead
+        parents: "interface {{ item }}"
+      loop:
+        - Loopback0
+        - FastEthernet0/0
+        - FastEthernet0/1
+      notify: Save Configuration
+
+  handlers:
+    - name: Save Configuration
+      cisco.ios.ios_command:
+        commands:
+          - command: "copy running-config startup-config"
+            prompt: 'Destination filename \[startup-config\]\?'
+            answer: "\r"

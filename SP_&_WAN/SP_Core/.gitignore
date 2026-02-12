@@ -1,0 +1,6 @@
+venv/
+*.log
+secrets.yml
+.ansible_vault_pass
+lab-router-backups/
+router-backups/

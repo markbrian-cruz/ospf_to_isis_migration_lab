@@ -1,0 +1,23 @@
+---
+- name: Force MPLS-TE Label Binding
+  hosts: R1, R5
+  gather_facts: no
+
+  tasks:
+    - name: Shutdown Tunnels
+      cisco.ios.ios_config:
+        lines:
+          - "shutdown"
+        parents: "interface {{ item }}"
+      loop: [Tunnel10, Tunnel20]
+
+    - name: Global RSVP Refresh
+      cisco.ios.ios_command:
+        commands: "clear ip rsvp reservation *"
+
+    - name: Bring Tunnels Back Up
+      cisco.ios.ios_config:
+        lines:
+          - "no shutdown"
+        parents: "interface {{ item }}"
+      loop: [Tunnel10, Tunnel20]
