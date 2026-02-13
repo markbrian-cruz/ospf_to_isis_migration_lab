@@ -11,3 +11,22 @@ hosts.ini
 
 # Ansible temporary files
 *.retry
+
+# --- NEW ADDITIONS ---
+# Local Virtual Environment
+venv/
+.venv/
+
+# SSH Config (Integrate your legacy cipher settings here)
+.ssh_config
+
+# Python bytecode and caches
+__pycache__/
+*.pyc
+
+# Logs (For debugging HSRP and SSH)
+*.log
+
+# Ansible Configuration and Retries
+ansible.cfg
+.ansible-retry/

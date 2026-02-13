@@ -1,0 +1,52 @@
+---
+- name: IPsec Protection to SP2
+  hosts:
+    - CustomerA3
+    - CustomerA4
+  gather_facts: no
+  connection: network_cli
+
+  vars:
+    ansible_command_timeout: 600
+
+  tasks:
+    - name: Configure ISAKMP Policy (Phase 1)
+      cisco.ios.ios_config:
+        lines:
+          - encryption aes
+          - hash sha
+          - authentication pre-share
+          - group 2
+        parents: crypto isakmp policy 10
+
+    - name: Set ISAKMP Pre-Shared Key
+      cisco.ios.ios_config:
+        lines:
+          # A3 associates key with A4 (20.0.0.14); A4 with A3 (20.0.0.10)
+          - crypto isakmp key {{ admin_password }} address {{ '20.0.0.14' if inventory_hostname == 'CustomerA3' else '20.0.0.10' }}
+
+    - name: Configure IPsec Transform Set (Phase 2)
+      cisco.ios.ios_config:
+        lines:
+          - mode transport
+        parents: crypto ipsec transform-set TS_ESP esp-aes esp-sha-hmac
+
+    - name: Configure IPsec Profile
+      cisco.ios.ios_config:
+        lines:
+          - set transform-set TS_ESP
+        parents: crypto ipsec profile IPSEC_PROF
+
+    - name: Apply Protection to Tunnel Interface
+      cisco.ios.ios_config:
+        lines:
+          - tunnel protection ipsec profile IPSEC_PROF
+        parents: interface Tunnel0
+
+    - name: save
+      cisco.ios.ios_command:
+        commands:
+          - command: 'copy running-config startup-config'
+            check_all: True
+            prompt: 'Destination filename \[startup-config\]\?'
+            answer: "\r"

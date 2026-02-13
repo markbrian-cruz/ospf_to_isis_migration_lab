@@ -1,0 +1,26 @@
+---
+- name: Optimize MTU and MSS for SP2 Tunnels
+  hosts: 
+    - CustomerA3
+    - CustomerA4
+  gather_facts: no
+  connection: network_cli
+
+  vars:
+    ansible_command_timeout: 600
+
+  tasks:
+    - name: Adjust MTU and MSS for IPsec Overhead
+      cisco.ios.ios_config:
+        lines:
+          - ip mtu 1400            # Headroom for GRE (24b) + IPsec (~56b)
+          - ip tcp adjust-mss 1360 # Forces TCP segments to fit the 1400 MTU
+        parents: interface Tunnel0
+
+    - name: Save
+      cisco.ios.ios_command:
+        commands:
+          - command: 'copy running-config startup-config'
+            check_all: True
+            prompt: 'Destination filename \[startup-config\]\?'
+            answer: "\r"

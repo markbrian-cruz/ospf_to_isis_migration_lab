@@ -1,0 +1,33 @@
+---
+- name: iBGP Overlay over Tunnel0
+  hosts:
+    - CustomerA3
+    - CustomerA4
+  gather_facts: no
+  connection: network_cli
+
+  vars:
+    peer_map:
+      CustomerA3: { remote_ip: "40.0.0.2" }
+      CustomerA4: { remote_ip: "40.0.0.1" }
+
+  tasks:
+    - name: Configure iBGP Neighbor over Tunnel
+      cisco.ios.ios_config:
+        lines:
+          - neighbor {{ peer_map[inventory_hostname].remote_ip }} remote-as 64850
+          - neighbor {{ peer_map[inventory_hostname].remote_ip }} description BACKUP_VIA_TUNNEL_SP2
+          # Control inbound path selection (for your outgoing traffic)
+          - neighbor {{ peer_map[inventory_hostname].remote_ip }} route-map LOW_PREF_IN in
+          # Control outbound path selection (for traffic coming back to you)
+          - neighbor {{ peer_map[inventory_hostname].remote_ip }} route-map PREPEND_OUT out
+          - neighbor {{ peer_map[inventory_hostname].remote_ip }} next-hop-self
+        parents: router bgp 64850
+
+    - name: save
+      cisco.ios.ios_command:
+        commands:
+          - command: 'copy running-config startup-config'
+            check_all: True
+            prompt: 'Destination filename \[startup-config\]\?'
+            answer: "\r"

@@ -1,0 +1,9 @@
+# Connection settings for Cisco IOS in GNS3
+ansible_connection: network_cli
+ansible_network_os: cisco.ios.ios
+
+# These reference the variables inside your hidden secrets.yml
+ansible_user: "{{ ansible_user }}"
+ansible_ssh_pass: "{{ ansible_ssh_pass }}"
+ansible_become_method: enable
+ansible_become_pass: "{{ ansible_become_pass }}"
