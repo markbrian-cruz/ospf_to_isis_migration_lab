@@ -1,0 +1,30 @@
+---
+- name: Phase 1 - GRE Tunnel Overlay (SP2)
+  hosts: 
+    - CustomerA3
+    - CustomerA4
+  gather_facts: no
+  connection: network_cli
+
+  vars:
+    ansible_command_timeout: 600
+    peer_map:
+      CustomerA3: { ip: "40.0.0.1", source: "20.0.0.10", dest: "20.0.0.14" }
+      CustomerA4: { ip: "40.0.0.2", source: "20.0.0.14", dest: "20.0.0.10" }
+
+  tasks:
+    - name: Configure Tunnel0 Interface
+      cisco.ios.ios_config:
+        lines:
+          - ip address {{ peer_map[inventory_hostname].ip }} 255.255.255.252
+          - tunnel source {{ peer_map[inventory_hostname].source }}
+          - tunnel destination {{ peer_map[inventory_hostname].dest }}
+        parents: interface Tunnel0
+
+    - name: Save
+      cisco.ios.ios_command:
+        commands:
+          - command: 'copy running-config startup-config'
+            check_all: True
+            prompt: 'Destination filename \[startup-config\]\?'
+            answer: "\r"

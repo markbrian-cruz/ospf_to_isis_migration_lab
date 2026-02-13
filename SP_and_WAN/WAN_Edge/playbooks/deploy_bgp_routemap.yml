@@ -1,0 +1,41 @@
+---
+- name: Phase 6 - BGP Path Manipulation
+  hosts: 
+    - CustomerA3
+    - CustomerA4
+  gather_facts: no
+  connection: network_cli
+
+  vars:
+    # Neighbor IPs SP2
+    bgp_peers:
+      CustomerA3: "20.0.0.9"
+      CustomerA4: "20.0.0.13"
+
+  tasks:
+    - name: Configure Route-Map for Inbound Traffic (AS-Path Prepend)
+      cisco.ios.ios_config:
+        lines:
+          - set as-path prepend 64850 64850 64850
+        parents: route-map PREPEND_OUT permit 10
+
+    - name: Configure Route-Map for Outbound Traffic (Local Preference)
+      cisco.ios.ios_config:
+        lines:
+          - set local-preference 50
+        parents: route-map LOW_PREF_IN permit 10
+
+    - name: Apply Route-Maps to SP 2 Neighbors
+      cisco.ios.ios_config:
+        lines:
+          - neighbor {{ bgp_peers[inventory_hostname] }} route-map LOW_PREF_IN in
+          - neighbor {{ bgp_peers[inventory_hostname] }} route-map PREPEND_OUT out
+        parents: router bgp 64850
+
+    - name: save
+      cisco.ios.ios_command:
+        commands:
+          - command: 'copy running-config startup-config'
+            check_all: True
+            prompt: 'Destination filename \[startup-config\]\?'
+            answer: "\r"

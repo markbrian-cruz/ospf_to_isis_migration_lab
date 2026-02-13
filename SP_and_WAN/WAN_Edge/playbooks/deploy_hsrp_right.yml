@@ -1,0 +1,28 @@
+---
+- name: Deploy HSRP for Customer A Right Wing
+  hosts: customer_right
+  gather_facts: no
+  connection: network_cli
+
+  vars:
+    ansible_command_timeout: 600
+    lan_interface: "FastEthernet1/0"
+
+  tasks:
+    - name: Configure HSRP on LAN Interface
+      cisco.ios.ios_config:
+        lines:
+          - standby 1 ip 192.168.2.1
+          # Removed the internal quotes within the Jinja2 expression
+          - standby 1 priority {{ 110 if inventory_hostname == 'CustomerA2' else 100 }}
+          - standby 1 preempt
+          - standby 1 name CUST_A_RIGHT_VIP
+        parents: "interface {{ lan_interface }}"
+
+    - name: Save to Startup-Config
+      cisco.ios.ios_command:
+        commands:
+          - command: 'copy running-config startup-config'
+            check_all: True
+            prompt: 'Destination filename \[startup-config\]\?'
+            answer: "\r"

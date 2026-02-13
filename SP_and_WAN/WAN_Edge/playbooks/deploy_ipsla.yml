@@ -1,0 +1,32 @@
+---
+- name: Deploy IP SLA Monitoring
+  hosts: 
+    - CustomerA3
+    - CustomerA4
+  gather_facts: no
+  connection: network_cli
+
+  vars:
+    ansible_command_timeout: 600
+    target_ip: "{{ '40.0.0.2' if inventory_hostname == 'CustomerA3' else '40.0.0.1' }}"
+
+  tasks:
+    - name: Configure IP SLA ICMP Echo
+      cisco.ios.ios_config:
+        lines:
+          - icmp-echo {{ target_ip }} source-interface Tunnel0
+          - frequency 10
+        parents: ip sla 10
+
+    - name: Schedule IP SLA
+      cisco.ios.ios_config:
+        lines:
+          - ip sla schedule 10 life forever start-time now
+
+    - name: save
+      cisco.ios.ios_command:
+        commands:
+          - command: 'copy running-config startup-config'
+            check_all: True
+            prompt: 'Destination filename \[startup-config\]\?'
+            answer: "\r"

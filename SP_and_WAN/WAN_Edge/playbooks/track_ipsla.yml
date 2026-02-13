@@ -1,0 +1,33 @@
+---
+- name: Deploy IP SLA Tracker for SP2
+  hosts:
+    - CustomerA3
+    - CustomerA4
+  gather_facts: no
+  connection: network_cli
+
+  tasks:
+    - name: Create Track 1
+      cisco.ios.ios_config:
+        lines:
+          - track 1 rtr 10 state
+
+    - name: Link Routing to the Track (CustomerA3)
+      cisco.ios.ios_config:
+        lines:
+          - ip route 192.168.2.0 255.255.255.0 Tunnel0 40.0.0.2 250 track 1
+      when: inventory_hostname == 'CustomerA3'
+
+    - name: Link Routing to the Track (CustomerA4)
+      cisco.ios.ios_config:
+        lines:
+          - ip route 192.168.1.0 255.255.255.0 Tunnel0 40.0.0.1 250 track 1
+      when: inventory_hostname == 'CustomerA4'
+
+    - name: save
+      cisco.ios.ios_command:
+        commands:
+          - command: 'copy running-config startup-config'
+            check_all: True
+            prompt: 'Destination filename \[startup-config\]\?'
+            answer: "\r"
