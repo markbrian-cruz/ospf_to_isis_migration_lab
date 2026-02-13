@@ -1,0 +1,44 @@
+---
+- name: Deploy MPLS and TE Infrastructure
+  hosts: R1, R2, R3, R4, R5
+  gather_facts: no
+  vars_files:
+    - "../secrets.yml"
+
+  tasks:
+    - name: Global MPLS and TE Features
+      cisco.ios.ios_config:
+        lines:
+          - "mpls ip"
+          - "mpls label protocol ldp"
+          - "mpls traffic-eng tunnels"
+          - "mpls ldp explicit-null"
+
+    - name: Enable TE Extensions in IS-IS
+      cisco.ios.ios_config:
+        lines:
+          - "mpls traffic-eng level-2"
+          - "mpls traffic-eng router-id Loopback0"
+        parents: "router isis"
+
+    - name: Enable MPLS and RSVP on Core Interfaces
+      cisco.ios.ios_config:
+        lines:
+          - "mpls ip"
+          - "mpls traffic-eng tunnels"
+          - "ip rsvp bandwidth 7500"
+          - "mpls mtu 1512"
+        parents: "interface {{ item }}"
+      # Using the inclusive loop to ensure R4's specific links are covered
+      loop:
+        - FastEthernet0/0
+        - FastEthernet0/1
+        - FastEthernet1/0
+        - FastEthernet1/1
+      ignore_errors: yes
+      notify: Save Configuration
+
+  handlers:
+    - name: Save Configuration
+      cisco.ios.ios_command:
+        commands: ["write memory"]

@@ -1,0 +1,20 @@
+---
+- name: Perform Soft Cutover - Deprioritize OSPF
+  hosts: routers
+  gather_facts: no
+
+  tasks:
+    - name: Set OSPF Administrative Distance to 150
+      cisco.ios.ios_config:
+        lines:
+          - "distance 150"
+        parents: "router ospf 1"
+      notify: Save Configuration
+
+  handlers:
+    - name: Save Configuration
+      cisco.ios.ios_command:
+        commands:
+          - command: "copy running-config startup-config"
+            prompt: 'Destination filename \[startup-config\]\?'
+            answer: "\r"

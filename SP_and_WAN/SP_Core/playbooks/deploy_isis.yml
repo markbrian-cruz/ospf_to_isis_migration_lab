@@ -1,0 +1,49 @@
+---
+- name: Deploy Pure IS-IS Underlay
+  hosts: R1, R2, R3, R4, R5
+  gather_facts: no
+  vars_files:
+    - "../secrets.yml"
+
+  vars:
+    # Auto-generates System ID (e.g., R1 -> 0000.0000.0001)
+    system_id: "0000.0000.000{{ inventory_hostname | regex_replace('R', '') }}"
+    
+    # Customer-facing interfaces (e.g., Fa1/0) that shouldn't form neighbors
+    passive_intfs:
+      - FastEthernet1/0 
+
+  tasks:
+    - name: Configure IS-IS Process
+      cisco.ios.ios_config:
+        lines:
+          - "net 49.0001.{{ system_id }}.00"
+          - "is-type level-2-only"
+          - "metric-style wide"
+          - "log-adjacency-changes"
+          - "passive-interface {{ item }}"
+        parents: "router isis"
+      loop: "{{ passive_intfs }}"
+
+    - name: Enable IS-IS on Core Interfaces
+      cisco.ios.ios_config:
+        lines:
+          - "ip router isis"
+        parents: "interface {{ item }}"
+      # Includes all possible core links to ensure reachability
+      loop:
+        - Loopback0
+        - FastEthernet0/0
+        - FastEthernet0/1
+        - FastEthernet1/0
+        - FastEthernet1/1
+      ignore_errors: yes
+      notify: Save Configuration
+
+  handlers:
+    - name: Save Configuration
+      cisco.ios.ios_command:
+        commands:
+          - command: "copy running-config startup-config"
+            prompt: 'Destination filename \[startup-config\]\?'
+            answer: "\r"

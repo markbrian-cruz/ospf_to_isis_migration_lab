@@ -1,0 +1,20 @@
+# --- Python Virtual Environment ---
+# Keeps your system files out of the repo
+venv/
+lib64/
+pyvenv.cfg
+bin/
+include/
+lib/
+*.pyc
+
+# --- Infrastructure Secrets ---
+# VERY IMPORTANT: Don't leak your lab passwords!
+hosts.ini
+*.txt
+*.csv
+devices.csv
+
+# --- Ansible Temp Files ---
+*.retry
+ansible.log

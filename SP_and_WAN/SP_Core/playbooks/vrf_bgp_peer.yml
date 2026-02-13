@@ -1,0 +1,36 @@
+---
+- name: BGP VRF deployment
+  hosts: R1, R5
+  gather_facts: no
+  vars_files:
+    - "../secrets.yml"
+
+  vars:
+    ansible_user: "{{ ssh_username }}"
+    ansible_ssh_pass: "{{ ssh_password }}"
+    ansible_connection: network_cli
+    ansible_network_os: cisco.ios.ios
+    ansible_network_cli_ssh_type: paramiko
+
+  tasks:
+    - name: Configure BGP VRF Neighbors
+      cisco.ios.ios_config:
+        lines:
+          - "router bgp 65000"
+          - " address-family ipv4 vrf CUST_A"
+          - "  neighbor {{ (inventory_hostname == 'R1') | ternary('15.15.1.2', '15.15.2.2') }} remote-as 64850"
+          - "  neighbor {{ (inventory_hostname == 'R1') | ternary('15.15.1.2', '15.15.2.2') }} activate"
+          - "  exit-address-family"
+          - " address-family ipv4 vrf CUST_B"
+          - "  neighbor {{ (inventory_hostname == 'R1') | ternary('15.15.1.2', '15.15.2.2') }} remote-as 64860"
+          - "  neighbor {{ (inventory_hostname == 'R1') | ternary('15.15.1.2', '15.15.2.2') }} activate"
+          - "  exit-address-family"
+      notify: Save Configuration
+
+  handlers:
+    - name: Save Configuration
+      cisco.ios.ios_command:
+        commands:
+          - command: "copy running-config startup-config"
+            prompt: 'Destination filename \[startup-config\]\?'
+            answer: "\r"
